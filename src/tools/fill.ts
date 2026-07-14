@@ -1,34 +1,34 @@
 import { z } from "zod";
 import { browserManager } from "../browser/BrowserManager.js";
 
-export const clickTool = {
-  name: "click",
+export const fillTool = {
+  name: "fill",
 
-  description: "Smart click on an element using the best locator strategy.",
+  description: "Fill an input using the best locator strategy.",
 
   inputSchema: z.object({
     role: z.string().optional(),
     name: z.string().optional(),
-    text: z.string().optional(),
     label: z.string().optional(),
     placeholder: z.string().optional(),
     selector: z.string().optional(),
+    value: z.string(),
   }),
 
   handler: async ({
     role,
     name,
-    text,
     label,
     placeholder,
     selector,
+    value,
   }: {
     role?: string;
     name?: string;
-    text?: string;
     label?: string;
     placeholder?: string;
     selector?: string;
+    value: string;
   }) => {
     const page = browserManager.getPage();
 
@@ -43,40 +43,26 @@ export const clickTool = {
       locator = page.getByLabel(label);
     } else if (placeholder) {
       locator = page.getByPlaceholder(placeholder);
-    } else if (text) {
-      locator = page.getByText(text, {
-        exact: true,
-      });
     } else if (selector) {
       locator = page.locator(selector);
     } else {
       throw new Error("No locator strategy provided.");
     }
 
-    try{
+    await locator.waitFor({
+      state: "visible",
+      timeout: 10000,
+    });
 
-   await locator.waitFor({
-      state:"visible",
-      timeout:10000
-   });
+    await locator.fill(value);
 
-   await locator.click();
-
-}
-catch(e){
-
-   throw new Error(
-      "Click failed: "+
-      JSON.stringify({
-          role,
-          name,
-          text,
-          label,
-          placeholder,
-          selector
-      })
-   );
-
-}
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Filled "${value}" successfully`,
+        },
+      ],
+    };
   },
 };

@@ -4,56 +4,51 @@ import { z } from "zod";
 import { launchBrowserTool } from "./tools/launchBrowser.js";
 import { gotoTool } from "./tools/goto.js";
 import { clickTool } from "./tools/click.js";
+import { fillTool } from "./tools/fill.js";
+import { ToolRegistry } from "./framework/ToolRegistry.js";
+import { inspectPageTool } from "./tools/inspectPage.js";
+import "./framework/registerTools.js";
+import { toolRegistry } from "./framework/ToolRegistry.js";
+
+
+const registry = new ToolRegistry();
 const server = new McpServer({
   name: "playwright-mcp-server",
   version: "1.0.0",
 });
 
-server.registerTool(
-  "ping",
-  {
-    description: "Ping tool",
-    inputSchema: z.object({}),
-  },
-  async () => ({
-    content: [
-      {
-        type: "text",
-        text: "Pong!",
-      },
-    ],
-  })
-);
-server.registerTool(
-  launchBrowserTool.name,
-  {
-    description: launchBrowserTool.description,
-    inputSchema: launchBrowserTool.inputSchema,
-  },
-  launchBrowserTool.handler
-);
-server.registerTool(
-  gotoTool.name,
-  {
-    description: gotoTool.description,
-    inputSchema: gotoTool.inputSchema,
-  },
-  gotoTool.handler
-);
-console.error("✅ Registered goto tool");
+registry.register(launchBrowserTool);
+registry.register(gotoTool);
+registry.register(clickTool);
+for (const tool of toolRegistry.getAll()) {
 
-server.registerTool(
-  clickTool.name,
-  {
-    description: clickTool.description,
-    inputSchema: clickTool.inputSchema,
-  },
-  clickTool.handler
-);
-console.error("✅ Registered click tool");
+  server.registerTool(
+    tool.name,
+    {
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    },
+    tool.handler
+  );
 
-const transport = new StdioServerTransport();
-
-await server.connect(transport);
+}
+// server.registerTool(
+//   fillTool.name,
+//   {
+//     description: fillTool.description,
+//     inputSchema: fillTool.inputSchema,
+//   },
+//   async (args, extra) => {
+//     const result = await fillTool.handler(args);
+//     return {
+//       ...result,
+//       content: result.content.map((item) => ({
+//         ...item,
+//         type: "text" as const,
+//       })),
+//     };
+//   }
+// );
+await server.connect(new StdioServerTransport());
 
 console.error("Server running");

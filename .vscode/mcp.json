@@ -1,11 +1,7 @@
 {
   "servers": {
     "playwright-mcp": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "/Users/shubhamsharma/Downloads/mcp-learning/dist/server.js"
-      ]
+      "command": "/Users/shubhamsharma/Downloads/mcp-learning/test.js"
     }
   }
 }

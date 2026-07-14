@@ -8,7 +8,7 @@ export const launchBrowserTool = {
 
   inputSchema: z.object({}),
 
-  handler: async () => {
+  handler: async (args: any) => {
     await browserManager.launch();
 
     return {
