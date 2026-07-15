@@ -57,4 +57,56 @@ console.log("==================================");
 
         return JSON.parse(json[0]) as ExecutionPlan;
     }
+    async nextAction(
+    goal: string,
+    page: any,
+    history: string[]
+) {
+
+    const { NextActionPrompt } =
+        await import("../prompts/NextActionPrompt.js");
+
+    const prompt =
+        NextActionPrompt.build(
+            goal,
+            page,
+            history
+        );
+
+    const response =
+        await this.client.chat.completions.create({
+
+            model: process.env.OPENROUTER_MODEL!,
+
+            temperature: 0,
+
+            messages: [
+
+                {
+                    role: "system",
+                    content:
+                        "Return ONLY valid JSON."
+                },
+
+                {
+                    role: "user",
+                    content: prompt
+                }
+
+            ]
+
+        });
+
+    const text =
+        response.choices[0].message.content ?? "";
+
+    const json =
+        text.match(/\{[\s\S]*\}/);
+
+    if (!json)
+        throw new Error("Invalid JSON");
+
+    return JSON.parse(json[0]);
+
+}
 }

@@ -2,13 +2,13 @@ export interface MemoryButton {
   text: string;
   id: string;
   class: string;
-  ariaLabel?: string | null;
-  testId?: string | null;
+  ariaLabel?: string;
+  testId?: string;
 }
 
 export interface MemoryLink {
   text: string;
-  href: string | null;
+  href: string;
 }
 
 export interface MemoryInput {
@@ -16,9 +16,9 @@ export interface MemoryInput {
   name: string;
   id: string;
   placeholder: string;
-  value: string;
-  ariaLabel?: string | null;
-  testId?: string | null;
+  value?: string;
+  ariaLabel?: string;
+  testId?: string;
 }
 
 export interface PageMemory {
@@ -32,6 +32,7 @@ export interface PageMemory {
 }
 
 export class BrowserMemory {
+
   private pages: PageMemory[] = [];
 
   remember(page: PageMemory) {
@@ -42,15 +43,18 @@ export class BrowserMemory {
     return this.pages[this.pages.length - 1];
   }
 
-  getAll(): PageMemory[] {
+  all(): PageMemory[] {
     return this.pages;
   }
 
-  all(): PageMemory[] {
+  getAll(): PageMemory[] {
     return this.pages;
   }
 
   clear() {
     this.pages = [];
   }
+
 }
+
+export const browserMemory = new BrowserMemory();

@@ -6,7 +6,6 @@ export interface ToolDefinition {
 }
 
 export class ToolRegistry {
-
   private tools = new Map<string, ToolDefinition>();
 
   register(tool: ToolDefinition) {

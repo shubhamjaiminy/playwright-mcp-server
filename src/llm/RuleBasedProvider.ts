@@ -1,10 +1,10 @@
 import { LLMProvider } from "./LLMProvider.js";
 import { ExecutionPlan } from "../models/ExecutionPlan.js";
-import { ToolRegistry } from "../tools/ToolRegistry.js";
+import { toolRegistry } from "../framework/ToolRegistry.js";
 export class RuleBasedProvider implements LLMProvider {
 
     async createPlan(goal: string): Promise<ExecutionPlan> {
-        const tools = ToolRegistry.getTools();
+        const tools = toolRegistry.getAll();
 
 console.log("Available Tools:");
 

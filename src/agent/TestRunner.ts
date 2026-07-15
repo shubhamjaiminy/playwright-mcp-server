@@ -1,6 +1,7 @@
 import { ExecutionPlan } from "../models/ExecutionPlan.js";
 import { ExecutionResult } from "../models/ExecutionResult.js";
 import { ToolExecutor } from "./ToolExecutor.js";
+import { HtmlReporter } from "../reporting/HtmlReporter.js";
 
 export class TestRunner {
 
@@ -20,24 +21,29 @@ export class TestRunner {
 
       try {
 
-try {
+        // First execution attempt
+        try {
 
-    await this.executor.execute(step.tool, step.input);
+          await this.executor.execute(step.tool, step.input);
 
-}
-catch {
+        } catch {
 
-    console.log("⚠️ Attempting self-healing...");
+          console.log("⚠️ Attempting self-healing...");
 
-    const { HealingAgent } =
-        await import("../healing/SelfHealingAgent.js");
+          const { HealingAgent } = await import(
+            "../healing/SelfHealingAgent.js"
+          );
 
-    const healed =
-        await HealingAgent.heal(step.tool, step.input);
+          const healedInput = await HealingAgent.heal(
+            step.tool,
+            step.input
+          );
 
-    await this.executor.execute(step.tool, healed);
+          console.log("🩹 Using healed locator:", healedInput);
 
-}
+          await this.executor.execute(step.tool, healedInput);
+        }
+
         result.steps.push({
           stepId: step.id,
           tool: step.tool,
@@ -45,31 +51,52 @@ catch {
           duration: Date.now() - started,
         });
 
-      } catch(err){
+      } catch (err) {
 
-    const screenshot = await import("../browser/BrowserManager.js")
-        .then(x=>x.browserManager.screenshot("failure"));
+        let screenshot = "";
 
-    console.log("\n❌ Step Failed");
-    console.log(err);
+        try {
 
-    console.log("Screenshot:",screenshot);
+          const { browserManager } = await import(
+            "../browser/BrowserManager.js"
+          );
 
-    result.steps.push({
-        stepId:step.id,
-        tool:step.tool,
-        status:"FAIL",
-        duration:Date.now()-started,
-        error:(err as Error).message
-    });
+          screenshot =
+            (await browserManager.screenshot(
+              `failure-step-${step.id}`
+            )) ?? "";
 
-    break;
-}
+        } catch {
+
+          console.log("⚠ Could not capture screenshot.");
+
+        }
+
+        const stepResult: any = {
+          stepId: step.id,
+          tool: step.tool,
+          status: "FAIL",
+          duration: Date.now() - started,
+          error: (err as Error).message,
+        };
+
+        if (screenshot) {
+          stepResult.screenshot = screenshot;
+        }
+
+        result.steps.push(stepResult);
+
+        break;
+      }
 
     }
 
     result.endedAt = new Date();
 
+    HtmlReporter.generate(result);
+
     return result;
+
   }
+
 }

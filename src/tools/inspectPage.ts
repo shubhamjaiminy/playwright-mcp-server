@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { browserManager } from "../browser/BrowserManager.js";
 import { memory } from "../ memory/MemoryManager.js";
-import { locatorEngine } from "../healing/AIHealer.js";
 
 export const inspectPageTool = {
+
   name: "inspectPage",
 
   description: "Inspect current page",
@@ -16,27 +16,35 @@ export const inspectPageTool = {
 
     const data = await page.evaluate(() => {
 
-      const buttons = [...document.querySelectorAll("button")].map(button => ({
-        text: button.textContent?.trim() || "",
-        id: button.id,
-        class: button.className,
-        ariaLabel: button.getAttribute("aria-label"),
-        testId: button.getAttribute("data-testid")
-      }));
+      const buttons = [...document.querySelectorAll("button")]
+        .map(button => ({
+          text: button.textContent?.trim() || "",
+          id: button.id,
+          class: button.className,
+          ariaLabel: button.getAttribute("aria-label"),
+          testId: button.getAttribute("data-testid")
+        }))
+        .filter(b => b.text.length > 0 || b.ariaLabel);
 
-      const links = [...document.querySelectorAll("a")].map(link => ({
-        text: link.textContent?.trim() || "",
-        href: link.getAttribute("href")
-      }));
+      const links = [...document.querySelectorAll("a")]
+        .map(link => ({
+          text: link.textContent?.trim() || "",
+          href: link.getAttribute("href")
+        }))
+        .filter(l => l.text.length > 0);
 
-      const inputs = [...document.querySelectorAll("input")].map(input => ({
-        type: input.type,
-        name: input.name,
-        id: input.id,
-        placeholder: input.placeholder,
-        value: input.value,
-        ariaLabel: input.getAttribute("aria-label"),
-        testId: input.getAttribute("data-testid")
+      const fields = [
+        ...document.querySelectorAll("input, textarea")
+      ];
+
+      const inputs = fields.map(field => ({
+        type: field.getAttribute("type") || "",
+        name: field.getAttribute("name") || "",
+        id: field.id,
+        placeholder: field.getAttribute("placeholder") || "",
+        value: (field as HTMLInputElement).value,
+        ariaLabel: field.getAttribute("aria-label"),
+        testId: field.getAttribute("data-testid")
       }));
 
       return {
@@ -49,43 +57,49 @@ export const inspectPageTool = {
 
     });
 
- memory.remember({
-  title: data.title,
-  url: data.url,
-  timestamp: new Date(),
+    memory.remember({
 
-  buttons: data.buttons,
-  links: data.links,
-  inputs: data.inputs
-});
-console.log("Memory after remember:");
-console.dir(memory.latest(), { depth: null });
-    for (const button of data.buttons) {
+      title: data.title,
 
-      locatorEngine.remember({
-        page: data.url,
-        tag: "button",
-        text: button.text,
-        id: button.id,
-        className: button.class,
-        ariaLabel: button.ariaLabel ?? undefined,
-        testId: button.testId ?? undefined
-      });
+      url: data.url,
 
-    }
+      timestamp: new Date(),
+
+      buttons: data.buttons.map(b => ({
+        text: b.text,
+        id: b.id,
+        class: b.class,
+        ariaLabel: b.ariaLabel ?? undefined,
+        testId: b.testId ?? undefined
+      })),
+
+      links: data.links.map(l => ({
+        text: l.text,
+        href: l.href ?? ""
+      })),
+
+      inputs: data.inputs.map(i => ({
+        type: i.type,
+        name: i.name,
+        id: i.id,
+        placeholder: i.placeholder,
+        value: i.value,
+        ariaLabel: i.ariaLabel ?? undefined,
+        testId: i.testId ?? undefined
+      }))
+
+    });
 
     console.log("\n🧠 Browser Memory Updated");
     console.log(data.title);
 
     return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(data, null, 2)
-        }
-      ]
+      content: [{
+        type: "text",
+        text: JSON.stringify(data, null, 2)
+      }]
     };
 
   }
-  
+
 };
