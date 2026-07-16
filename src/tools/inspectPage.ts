@@ -16,14 +16,15 @@ export const inspectPageTool = {
 
     const data = await page.evaluate(() => {
 
-      const buttons = [...document.querySelectorAll("button")]
-        .map(button => ({
-          text: button.textContent?.trim() || "",
-          id: button.id,
-          class: button.className,
-          ariaLabel: button.getAttribute("aria-label"),
-          testId: button.getAttribute("data-testid")
-        }))
+   const buttons = [...document.querySelectorAll("button")]
+    .map(button => ({
+        text: button.textContent?.trim() || "",
+        id: button.id,
+        name: button.getAttribute("name") || "",
+        class: button.className,
+        ariaLabel: button.getAttribute("aria-label"),
+        testId: button.getAttribute("data-testid")
+    }))
         .filter(b => b.text.length > 0 || b.ariaLabel);
 
       const links = [...document.querySelectorAll("a")]
@@ -68,6 +69,7 @@ export const inspectPageTool = {
       buttons: data.buttons.map(b => ({
         text: b.text,
         id: b.id,
+        name: b.name,
         class: b.class,
         ariaLabel: b.ariaLabel ?? undefined,
         testId: b.testId ?? undefined

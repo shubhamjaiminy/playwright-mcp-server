@@ -4,57 +4,91 @@ import fs from "fs";
 export class BrowserManager {
 
     private browser: Browser | null = null;
-    private page: Page |null = null;
+    private page: Page | null = null;
 
     async launch() {
 
-        if(!this.browser){
+        if (!this.browser) {
 
             console.log("Launching Chromium...");
 
             this.browser = await chromium.launch({
-                headless:false
+                headless: false
             });
 
             this.page = await this.browser.newPage();
+
         }
 
         return this.page!;
+
     }
 
-    getPage(){
+    getPage() {
 
-        if(!this.page){
-            throw new Error("Browser not launched");
-        }
+        if (!this.page)
+            throw new Error("Browser not launched.");
 
         return this.page;
+
     }
-    async screenshot(name:string){
 
-await this.getPage().screenshot({
+    // NEW
+    async screenshotBase64(): Promise<string> {
 
-path:`screenshots/${name}.png`
+        if (!this.page)
+            return "";
 
-});
+        const buffer = await this.page.screenshot({
+            fullPage: true
+        });
 
-}
+        return buffer.toString("base64");
 
- 
+    }
 
-    async close(){
+    // UPDATED
+    async screenshot(fileName: string) {
 
-        if(this.browser){
+        if (!this.page)
+            return "";
 
-            await this.browser.close();
+        if (!fs.existsSync("./reports/screenshots")) {
 
-            this.browser=null;
-            this.page=null;
+            fs.mkdirSync("./reports/screenshots", {
+                recursive: true
+            });
 
         }
 
+        const file =
+            `./reports/screenshots/${fileName}.png`;
+
+        await this.page.screenshot({
+
+            path: file,
+
+            fullPage: true
+
+        });
+
+        return file;
+
+    }
+
+    async close() {
+
+        if (!this.browser)
+            return;
+
+        await this.browser.close();
+
+        this.browser = null;
+        this.page = null;
+
     }
 
 }
 
-export const browserManager = new BrowserManager();
+export const browserManager =
+    new BrowserManager();

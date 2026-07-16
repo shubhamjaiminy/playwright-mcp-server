@@ -3,74 +3,143 @@ import { SimilarityEngine } from "./SimilarityEngine.js";
 
 export class HealingAgent {
 
-  static async heal(tool: string, args: any) {
+    static async heal(tool: string, args: any) {
 
-    if (tool !== "click")
-      return args;
+        if (tool !== "click") {
+            return args;
+        }
 
-    const page = memory.latest();
+        const page = memory.latest();
 
-    if (!page)
-      return args;
+        if (!page) {
+            return args;
+        }
 
-    const target = (
-      args.name ??
-      args.text ??
-      args.label ??
-      ""
-    ).toLowerCase();
+        const target = (
+            args.name ??
+            args.text ??
+            args.label ??
+            args.ariaLabel ??
+            ""
+        ).trim().toLowerCase();
 
-    let bestScore = 0;
-    let bestRole = "";
-    let bestMatch: any;
+        if (!target) {
+            console.log("❌ Cannot heal click: no target text provided");
+            return args;
+        }
 
-    for (const button of page.buttons) {
+        let bestScore = 0;
+        let bestMatch: any = null;
+        let bestRole = "";
 
-      const score = SimilarityEngine.similarity(
-        target,
-        button.text
-      );
+        // Search buttons
+      for (const button of page.buttons) {
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = button;
-        bestRole = "button";
-      }
+    const candidates = [
+
+        button.text,
+
+        button.ariaLabel,
+
+        button.testId,
+
+        button.id,
+
+        // Add this if your memory stores it
+        (button as any).name
+
+    ].filter(
+        value =>
+            typeof value === "string" &&
+            value.trim().length > 0
+    );
+
+    for (const candidate of candidates) {
+
+        const score =
+            SimilarityEngine.similarity(
+                target,
+                candidate
+            );
+
+        if (score > bestScore) {
+
+            bestScore = score;
+
+            bestMatch = button;
+
+            bestRole = "button";
+
+        }
 
     }
 
-    for (const link of page.links) {
+}
 
-      const score = SimilarityEngine.similarity(
-        target,
-        link.text
-      );
+        // Search links
+        for (const link of page.links) {
 
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = link;
-        bestRole = "link";
-      }
+            const score = SimilarityEngine.similarity(
+                target,
+                link.text
+            );
 
+            if (score > bestScore) {
+
+                bestScore = score;
+                bestMatch = link;
+                bestRole = "link";
+
+            }
+        }
+
+        console.log(`Best Match Score: ${bestScore}`);
+
+        if (!bestMatch || bestScore < 70) {
+
+            console.log("❌ No good locator found");
+
+            return args;
+        }
+
+        console.log("🩹 Self Healing Success");
+
+        // Prefer accessible text
+        if (bestMatch.text?.trim()) {
+
+            return {
+                role: bestRole,
+                name: bestMatch.text.trim()
+            };
+        }
+
+        // Fallback to aria-label
+        if (bestMatch.ariaLabel?.trim()) {
+
+            return {
+                ariaLabel: bestMatch.ariaLabel.trim()
+            };
+        }
+
+        // Fallback to test id
+        if (bestMatch.testId?.trim()) {
+
+            return {
+                testId: bestMatch.testId.trim()
+            };
+        }
+
+        // Fallback to id
+        if (bestMatch.id?.trim()) {
+
+            return {
+                selector: `#${bestMatch.id}`
+            };
+        }
+
+        console.log("❌ Match found but no usable locator exists");
+
+        return args;
     }
-
-    console.log(`Best Match Score : ${bestScore}`);
-
-    if (bestScore >= 70 && bestMatch) {
-
-      console.log("🩹 Self Healing Success");
-
-      return {
-        role: bestRole,
-        name: bestMatch.text
-      };
-
-    }
-
-    console.log("❌ No good locator found");
-
-    return args;
-
-  }
 
 }

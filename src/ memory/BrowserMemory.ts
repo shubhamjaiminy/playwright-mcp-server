@@ -1,9 +1,17 @@
 export interface MemoryButton {
-  text: string;
-  id: string;
-  class: string;
-  ariaLabel?: string;
-  testId?: string;
+
+    text: string;
+
+    id: string;
+
+    name: string;
+
+    class: string;
+
+    ariaLabel?: string;
+
+    testId?: string;
+
 }
 
 export interface MemoryLink {

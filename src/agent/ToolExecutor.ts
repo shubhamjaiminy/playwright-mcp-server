@@ -6,6 +6,7 @@ import { HealingAgent } from "../healing/SelfHealingAgent.js";
 import { browserManager } from "../browser/BrowserManager.js";
 
 export class ToolExecutor {
+    
 
     async execute(toolName:string,input:any){
 
@@ -25,7 +26,10 @@ export class ToolExecutor {
 
 await browserManager.screenshot("failure");
 
-
+console.log(
+    `🔧 Executing tool: ${toolName}`,
+    JSON.stringify(input, null, 2)
+);
 
             const healed=await HealingAgent.heal(toolName,input);
 

@@ -13,12 +13,15 @@ export class OpenRouterProvider implements LLMProvider {
         apiKey: process.env.OPENROUTER_API_KEY,
         baseURL: "https://openrouter.ai/api/v1",
 
-        // Optional but recommended
         defaultHeaders: {
             "HTTP-Referer": "http://localhost:3000",
             "X-Title": "AI Test Automation Framework",
         },
     });
+
+    // ---------------------------------------------
+    // TEXT PLANNER
+    // ---------------------------------------------
 
     async createPlan(goal: string): Promise<ExecutionPlan> {
 
@@ -27,44 +30,69 @@ export class OpenRouterProvider implements LLMProvider {
         console.log("🚀 Calling OpenRouter...");
         console.log("Model:", process.env.OPENROUTER_MODEL);
 
-        const response = await this.client.chat.completions.create({
-            model: process.env.OPENROUTER_MODEL!,
-            temperature: 0,
-            messages: [
-                {
-                    role: "system",
-                    content:
-                        "You are an expert AI Test Automation Planner. Return ONLY valid JSON. No markdown. No explanation.",
-                },
-                {
-                    role: "user",
-                    content: prompt,
-                },
-            ],
-        });
+        const response =
+            await this.client.chat.completions.create({
 
-       const text = response.choices?.[0]?.message?.content ?? "";
+                model: process.env.OPENROUTER_MODEL!,
 
-console.log("========== RAW RESPONSE ==========");
-console.log(text);
-console.log("==================================");
+                temperature: 0,
 
-        const json = text.match(/\{[\s\S]*\}/);
+                messages: [
+
+                    {
+                        role: "system",
+
+                        content:
+                            "You are an expert AI Test Automation Planner. Return ONLY valid JSON."
+                    },
+
+                    {
+                        role: "user",
+
+                        content: prompt
+                    }
+
+                ]
+
+            });
+
+        const text =
+            response.choices?.[0]?.message?.content ?? "";
+
+        console.log("========== RAW RESPONSE ==========");
+        console.log(text);
+        console.log("==================================");
+
+        const json =
+            text.match(/\{[\s\S]*\}/);
 
         if (!json) {
-            throw new Error("OpenRouter did not return valid JSON.");
+
+            throw new Error(
+                "OpenRouter did not return valid JSON."
+            );
+
         }
 
         return JSON.parse(json[0]) as ExecutionPlan;
     }
-    async nextAction(
+
+
+    // ---------------------------------------------
+    // VISION AGENT
+    // ---------------------------------------------
+
+async nextAction(
     goal: string,
     page: any,
     history: string[]
 ) {
 
-    const { NextActionPrompt } =
-        await import("../prompts/NextActionPrompt.js");
+    const {
+        NextActionPrompt
+    } = await import(
+        "../prompts/NextActionPrompt.js"
+    );
 
     const prompt =
         NextActionPrompt.build(
@@ -73,10 +101,15 @@ console.log("==================================");
             history
         );
 
+    console.log(
+        "🤖 Asking AI for next action..."
+    );
+
     const response =
         await this.client.chat.completions.create({
 
-            model: process.env.OPENROUTER_MODEL!,
+            model:
+                process.env.OPENROUTER_MODEL!,
 
             temperature: 0,
 
@@ -84,13 +117,25 @@ console.log("==================================");
 
                 {
                     role: "system",
+
                     content:
-                        "Return ONLY valid JSON."
+                        `
+You are an autonomous QA browser agent.
+
+Return ONLY valid JSON.
+
+Never return explanations.
+
+Never return markdown.
+`
                 },
 
                 {
+
                     role: "user",
+
                     content: prompt
+
                 }
 
             ]
@@ -98,15 +143,41 @@ console.log("==================================");
         });
 
     const text =
-        response.choices[0].message.content ?? "";
+        response
+            .choices?.[0]
+            ?.message
+            ?.content ?? "";
+
+    console.log(
+        "\n========== AI RESPONSE =========="
+    );
+
+    console.log(
+        text
+    );
+
+    console.log(
+        "================================="
+    );
 
     const json =
-        text.match(/\{[\s\S]*\}/);
+        text.match(
+            /\{[\s\S]*\}/
+        );
 
-    if (!json)
-        throw new Error("Invalid JSON");
+    if (
+        !json
+    ) {
 
-    return JSON.parse(json[0]);
+        throw new Error(
+            `AI returned invalid JSON: ${text}`
+        );
+
+    }
+
+    return JSON.parse(
+        json[0]
+    );
 
 }
 }
