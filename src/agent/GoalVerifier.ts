@@ -5,109 +5,240 @@ dotenv.config();
 
 export class GoalVerifier {
 
-  private client = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseURL: "https://openrouter.ai/api/v1",
-  });
+    private client = new OpenAI({
 
-  async verify(
-    goal: string,
-    page: any,
-    screenshot: string
-  ) {
+        apiKey:
+            process.env.OPENROUTER_API_KEY,
 
-    console.log("\n🔍 Verifying Goal Completion...");
+        baseURL:
+            "https://openrouter.ai/api/v1",
 
-    const prompt = `
-You are a QA test verification agent.
+        defaultHeaders: {
 
-Determine whether the user's goal has actually been completed.
+            "HTTP-Referer":
+                "http://localhost:3000",
 
-USER GOAL:
-${goal}
+            "X-Title":
+                "AI Test Automation Framework",
 
-CURRENT PAGE MEMORY:
-${JSON.stringify(page, null, 2)}
+        },
 
-Return ONLY valid JSON.
+    });
 
-If the goal is completed:
 
-{
-  "status": "PASS",
-  "reason": "..."
-}
+    private parseJson(
+        text: string
+    ): any {
 
-If the goal is not completed:
+        const cleaned =
+            text
+                .replace(
+                    /```json/gi,
+                    ""
+                )
+                .replace(
+                    /```/g,
+                    ""
+                )
+                .trim();
 
-{
-  "status": "FAIL",
-  "reason": "..."
-}
-`;
+        const start =
+            cleaned.indexOf("{");
 
-    const response =
-      await this.client.chat.completions.create({
+        const end =
+            cleaned.lastIndexOf("}");
 
-        model: process.env.OPENROUTER_MODEL!,
+        if (
 
-        temperature: 0,
+            start === -1 ||
+            end === -1 ||
+            end <= start
 
-        messages: [
+        ) {
 
-          {
-            role: "system",
-            content:
-              "You are a strict QA verification agent. Return only valid JSON."
-          },
+            throw new Error(
+                "Goal verifier returned invalid JSON."
+            );
 
-          {
-            role: "user",
+        }
 
-            content: [
+        const json =
+            cleaned.substring(
+                start,
+                end + 1
+            );
 
-              {
-                type: "text",
-                text: prompt
-              },
+        try {
 
-              {
-                type: "image_url",
+            return JSON.parse(
+                json
+            );
 
-                image_url: {
-                  url:
-                    `data:image/png;base64,${screenshot}`
-                }
-              }
+        }
 
-            ]
+        catch {
 
-          }
+            throw new Error(
+                "Goal verifier returned malformed JSON."
+            );
 
-        ]
-
-      });
-
-    const text =
-      response.choices[0].message.content ?? "";
-
-    console.log("\n========== VERIFICATION RESPONSE ==========");
-    console.log(text);
-    console.log("============================================");
-
-    const json =
-      text.match(/\{[\s\S]*\}/);
-
-    if (!json) {
-
-      throw new Error(
-        "Goal verifier returned invalid JSON."
-      );
+        }
 
     }
 
-    return JSON.parse(json[0]);
 
-  }
+    async verify(
+
+        goal: string,
+
+        page: any,
+
+        screenshot: string
+
+    ) {
+
+        console.log(
+            "\n🔍 Verifying Goal Completion..."
+        );
+
+        const prompt = `
+
+You are a QA test result verifier.
+
+Determine whether the user's goal has been completed successfully.
+
+USER GOAL:
+
+${goal}
+
+CURRENT PAGE MEMORY:
+
+${JSON.stringify(
+    page,
+    null,
+    2
+)}
+
+The current browser screenshot is also available.
+
+Return ONLY this exact JSON format:
+
+{
+  "status": "PASS",
+  "reason": "Short explanation"
+}
+
+OR:
+
+{
+  "status": "FAIL",
+  "reason": "Short explanation"
+}
+
+Rules:
+
+- Return ONLY JSON.
+- Do NOT return markdown.
+- Do NOT return explanations outside JSON.
+- Do NOT return safety classifications.
+- Do NOT return "User Safety".
+- Do NOT return analysis.
+- The status must be exactly PASS or FAIL.
+`;
+
+        const response =
+            await this.client.chat.completions.create({
+
+                model:
+                    process.env.OPENROUTER_MODEL!,
+
+                temperature:
+                    0,
+
+                messages: [
+
+                    {
+
+                        role:
+                            "system",
+
+                        content:
+                            `
+You are a strict QA verification engine.
+
+Return ONLY valid JSON.
+
+Never return:
+- User Safety
+- safety classifications
+- explanations outside JSON
+- markdown
+- analysis
+- commentary
+`
+                    },
+
+                    {
+
+                        role:
+                            "user",
+
+                        content: [
+
+                            {
+
+                                type:
+                                    "text",
+
+                                text:
+                                    prompt
+
+                            },
+
+                            {
+
+                                type:
+                                    "image_url",
+
+                                image_url: {
+
+                                    url:
+                                        `data:image/png;base64,${screenshot}`
+
+                                }
+
+                            }
+
+                        ]
+
+                    }
+
+                ]
+
+            });
+
+        const text =
+            response
+                .choices?.[0]
+                ?.message
+                ?.content ?? "";
+
+        console.log(
+            "\n========== VERIFICATION RESPONSE =========="
+        );
+
+        console.log(
+            text
+        );
+
+        console.log(
+            "============================================"
+        );
+
+        return this.parseJson(
+            text
+        );
+
+    }
 
 }

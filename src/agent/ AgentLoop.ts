@@ -1,195 +1,292 @@
 import { ToolExecutor } from "./ToolExecutor.js";
 import { OpenRouterProvider } from "../llm/OpenRouterProvider.js";
 import { memory } from "../ memory/MemoryManager.js";
+import { browserManager } from "../browser/BrowserManager.js";
+import { GoalVerifier } from "./GoalVerifier.js";
 
 export class AgentLoop {
 
-    private executor = new ToolExecutor();
+  private executor =
+    new ToolExecutor();
 
-    private ai = new OpenRouterProvider();
+  private ai =
+    new OpenRouterProvider();
 
-    async run(goal: string) {
+  private verifier =
+    new GoalVerifier();
 
-        const history: string[] = [];
+  async run(goal: string) {
 
-        // ----------------------------------------
-        // Launch browser
-        // ----------------------------------------
+    const history: string[] = [];
 
-        await this.executor.execute(
-            "launchBrowser",
-            {}
+    console.log("\n🎯 Goal:");
+    console.log(goal);
+
+    /*
+    ========================================
+    1. LAUNCH BROWSER
+    ========================================
+    */
+
+    await this.executor.execute(
+      "launchBrowser",
+      {}
+    );
+
+    /*
+    ========================================
+    2. OPEN URL IF PRESENT
+    ========================================
+    */
+
+    const url =
+      goal.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (url) {
+
+      await this.executor.execute(
+        "goto",
+        { url }
+      );
+
+      history.push(
+        `goto: ${url}`
+      );
+
+    }
+
+    /*
+    ========================================
+    3. AUTONOMOUS AGENT LOOP
+    ========================================
+    */
+
+    while (true) {
+
+      /*
+      ------------------------------------
+      Inspect current page
+      ------------------------------------
+      */
+
+      await this.executor.execute(
+        "inspectPage",
+        {}
+      );
+
+      const page =
+        memory.latest();
+
+      const screenshot =
+        await browserManager.screenshotBase64();
+
+      /*
+      ------------------------------------
+      Ask AI for next action
+      ------------------------------------
+      */
+
+      console.log(
+        "\n🤖 Asking AI for next action..."
+      );
+
+      const action =
+        await this.ai.nextAction(
+
+          goal,
+
+          page,
+
+          history
+
         );
 
-        // ----------------------------------------
-        // Resolve URL
-        // ----------------------------------------
+      console.log(
+        "\n🤖 AI Decision"
+      );
 
-        const url =
-            this.resolveUrl(goal);
+      console.log(action);
 
-        if (url) {
+      /*
+      ====================================
+      FINISH DECISION
+      ====================================
+      */
 
-            await this.executor.execute(
-                "goto",
-                { url }
-            );
+      if (
+        action.tool === "FINISH"
+      ) {
 
-            history.push(
-                `goto ${url}`
-            );
+        console.log(
+          "\n🛑 AI believes goal is complete."
+        );
+
+        const verification =
+          await this.verifier.verify(
+
+            goal,
+
+            page,
+
+            screenshot
+
+          );
+
+        console.log(
+          "\n📊 FINAL VERIFICATION"
+        );
+
+        console.log(
+          verification
+        );
+
+        if (
+          verification.status === "PASS"
+        ) {
+
+          console.log(
+            "\n✅ TEST PASSED"
+          );
+
+          return {
+
+            status:
+              "PASS",
+
+            reason:
+              verification.reason
+
+          };
+
+        }
+
+        console.log(
+          "\n❌ FINAL VERIFICATION FAILED"
+        );
+
+        history.push(
+          `FINISH rejected: ${verification.reason}`
+        );
+
+        continue;
+
+      }
+
+      /*
+      ====================================
+      EXECUTE ACTION
+      ====================================
+      */
+
+      await this.executor.execute(
+
+        action.tool,
+
+        action.input
+
+      );
+
+      history.push(
+
+        `${action.tool}: ${
+          JSON.stringify(
+            action.input
+          )
+        }`
+
+      );
+
+      /*
+      ====================================
+      IMPORTANT:
+      After a successful assertion,
+      verify the goal immediately.
+
+      Do not ask the AI again.
+      ====================================
+      */
+
+      if (
+
+        action.tool ===
+        "assertTitle" ||
+
+        action.tool ===
+        "assertUrl" ||
+
+        action.tool ===
+        "assertText" ||
+
+        action.tool ===
+        "assertVisible"
+
+      ) {
+
+        console.log(
+          "\n🔍 Assertion succeeded."
+        );
+
+        console.log(
+          "🔍 Running independent goal verification..."
+        );
+
+        const updatedPage =
+          memory.latest();
+
+        const updatedScreenshot =
+          await browserManager.screenshotBase64();
+
+        const verification =
+          await this.verifier.verify(
+
+            goal,
+
+            updatedPage,
+
+            updatedScreenshot
+
+          );
+
+        console.log(
+          "\n📊 FINAL VERIFICATION"
+        );
+
+        console.log(
+          verification
+        );
+
+        if (
+          verification.status === "PASS"
+        ) {
+
+          console.log(
+            "\n✅ TEST PASSED"
+          );
+
+          return {
+
+            status:
+              "PASS",
+
+            reason:
+              verification.reason
+
+          };
 
         }
 
-        // ----------------------------------------
-        // Autonomous Agent Loop
-        // ----------------------------------------
+        console.log(
+          "\n❌ TEST FAILED"
+        );
 
-        let attempts = 0;
+        throw new Error(
+          verification.reason
+        );
 
-        while (true) {
-
-            attempts++;
-
-            if (attempts > 20) {
-
-                throw new Error(
-                    "Agent exceeded maximum steps."
-                );
-
-            }
-
-            // ----------------------------------------
-            // Inspect current page
-            // ----------------------------------------
-
-            await this.executor.execute(
-                "inspectPage",
-                {}
-            );
-
-            const page =
-                memory.latest();
-
-            console.log(
-                "\n🧠 Current Page Memory"
-            );
-
-            console.log(
-                JSON.stringify(
-                    page,
-                    null,
-                    2
-                )
-            );
-
-            // ----------------------------------------
-            // Ask AI for next action
-            // ----------------------------------------
-
-            const action =
-                await this.ai.nextAction(
-                    goal,
-                    page,
-                    history
-                );
-
-            console.log(
-                "\n🤖 AI Decision"
-            );
-
-            console.log(
-                action
-            );
-
-            // ----------------------------------------
-            // Finish
-            // ----------------------------------------
-
-            if (
-                action.tool === "FINISH"
-            ) {
-
-                console.log(
-                    "✅ Goal Complete"
-                );
-
-                break;
-
-            }
-
-            // ----------------------------------------
-            // Execute action
-            // ----------------------------------------
-
-            await this.executor.execute(
-                action.tool,
-                action.input
-            );
-
-            history.push(
-                `${action.tool} ${JSON.stringify(action.input)}`
-            );
-
-        }
+      }
 
     }
 
-    private resolveUrl(
-        goal: string
-    ): string | undefined {
-
-        // Explicit URL
-        const explicitUrl =
-            goal.match(
-                /https?:\/\/[^\s]+/
-            )?.[0];
-
-        if (
-            explicitUrl
-        ) {
-
-            return explicitUrl;
-
-        }
-
-        // Common websites
-
-        const lowerGoal =
-            goal.toLowerCase();
-
-        if (
-            lowerGoal.includes(
-                "google"
-            )
-        ) {
-
-            return "https://www.google.com";
-
-        }
-
-        if (
-            lowerGoal.includes(
-                "youtube"
-            )
-        ) {
-
-            return "https://www.youtube.com";
-
-        }
-
-        if (
-            lowerGoal.includes(
-                "github"
-            )
-        ) {
-
-            return "https://github.com";
-
-        }
-
-        return undefined;
-
-    }
+  }
 
 }

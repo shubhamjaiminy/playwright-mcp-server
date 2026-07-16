@@ -6,36 +6,87 @@ import { HealingAgent } from "../healing/SelfHealingAgent.js";
 import { browserManager } from "../browser/BrowserManager.js";
 
 export class ToolExecutor {
-    
 
-    async execute(toolName:string,input:any){
+    async execute(
 
-        const tool=toolRegistry.get(toolName);
+        toolName: string,
 
-        if(!tool)
-            throw new Error(`Tool ${toolName} not found`);
+        input: any
 
-        try{
+    ) {
 
-            await tool.handler(input);
+        const tool =
+            toolRegistry.get(
+                toolName
+            );
 
-        }catch(err){
+        if (!tool) {
 
-            console.log("⚠ Tool failed");
+            throw new Error(
+                `Tool ${toolName} not found`
+            );
 
+        }
 
-await browserManager.screenshot("failure");
+        try {
 
-console.log(
-    `🔧 Executing tool: ${toolName}`,
-    JSON.stringify(input, null, 2)
-);
+            await tool.handler(
+                input
+            );
 
-            const healed=await HealingAgent.heal(toolName,input);
+        }
 
-            await retryEngine.execute(toolName, input, async (healedInput) => {
-                await tool.handler(healedInput);
-            });
+        catch (err) {
+
+            console.log(
+                "⚠ Tool failed"
+            );
+
+            try {
+
+                await browserManager.screenshot(
+                    `failure-${toolName}`
+                );
+
+            }
+
+            catch {
+
+                console.log(
+                    "⚠ Could not capture failure screenshot"
+                );
+
+            }
+
+            console.log(
+
+                `🔧 Executing tool: ${toolName}`,
+
+                JSON.stringify(
+                    input,
+                    null,
+                    2
+                )
+
+            );
+
+            await retryEngine.execute(
+
+                toolName,
+
+                input,
+
+                async (
+                    healedInput
+                ) => {
+
+                    await tool.handler(
+                        healedInput
+                    );
+
+                }
+
+            );
 
         }
 

@@ -3,46 +3,71 @@ import { browserManager } from "../../browser/BrowserManager.js";
 
 export const assertTitleTool = {
 
-    name: "assertTitle",
+  name: "assertTitle",
 
-    description: "Assert that page title contains text.",
+  description:
+    "Verify that the current page title contains expected text.",
 
-    inputSchema: z.object({
+  inputSchema:
+    z.object({
 
-        contains: z.string()
+      contains:
+        z.string(),
 
     }),
 
-    handler: async ({ contains }: { contains: string }) => {
+  handler:
+    async (
+      input: {
+        contains: string
+      }
+    ) => {
 
-        const page = browserManager.getPage();
+      const page =
+        browserManager.getPage();
 
-        const title = await page.title();
+      const actualTitle =
+        await page.title();
 
-        if (!title.includes(contains)) {
+      if (
+        !actualTitle.includes(
+          input.contains
+        )
+      ) {
 
-            throw new Error(
-                `Expected title to contain "${contains}" but got "${title}".`
-            );
+        throw new Error(
 
-        }
+          `Expected title to contain "${input.contains}" ` +
+          `but got "${actualTitle}".`
 
-        return {
+        );
 
-            content: [
+      }
 
-                {
+      console.log(
 
-                    type: "text",
+        `✅ Title contains "${input.contains}"`
 
-                    text: "Title assertion passed"
+      );
 
-                }
+      return {
 
-            ]
+        content: [
 
-        };
+          {
 
-    }
+            type:
+              "text",
+
+            text:
+              `Title contains "${input.contains}"`,
+
+          }
+
+        ]
+
+      };
+
+    },
 
 };
